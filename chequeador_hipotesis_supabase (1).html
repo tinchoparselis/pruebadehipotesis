@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Chequeador de hipótesis de funcionamiento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff; --panel:#ffffff; --panel2:#f4f4f4; --text:#111111;
+  --muted:#5f5f5f; --accent:#111111; --ok:#137a45; --warn:#8a6200; --bad:#b42318;
+  --border:#d8d8d8;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Montserrat",Arial,sans-serif;background:var(--bg);color:var(--text)}
+.wrap{max-width:1100px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:clamp(26px,4vw,42px);margin:0 0 8px}
+h2{margin:0 0 14px;font-size:22px}
+p{line-height:1.5}
+.sub{color:var(--muted);margin-bottom:24px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:18px;margin:16px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+label{display:block;font-weight:700;margin-bottom:7px}
+input,textarea,select{width:100%;background:#ffffff;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:11px 12px;font:inherit}
+textarea{min-height:120px;resize:vertical}
+button{border:0;border-radius:10px;padding:11px 16px;font:inherit;font-weight:800;cursor:pointer}
+.primary{background:var(--accent);color:#ffffff}
+.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+.danger{background:#ffffff;color:#b42318;border:1px solid #b42318}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.result{display:none}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:13px;font-weight:800;margin:3px}
+.ok{background:rgba(110,231,168,.14);color:var(--ok)}
+.warn{background:rgba(255,209,102,.14);color:var(--warn)}
+.bad{background:rgba(255,123,123,.14);color:var(--bad)}
+.criteria{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+@media(max-width:760px){.criteria{grid-template-columns:1fr}}
+.criterion{background:#fafafa;border:1px solid var(--border);border-radius:12px;padding:12px}
+.criterion b{display:block;margin-bottom:5px}
+.small{font-size:13px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;min-width:900px}
+th,td{border-bottom:1px solid var(--border);padding:10px;vertical-align:top;text-align:left}
+th{position:sticky;top:0;background:var(--panel2)}
+.tablewrap{overflow:auto;max-height:440px;border:1px solid var(--border);border-radius:12px}
+.score{font-size:34px;font-weight:900}
+.note{background:#fafafa;border-left:4px solid var(--accent);padding:12px;border-radius:8px}
+footer{color:var(--muted);font-size:13px;margin-top:28px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>Chequeador de hipótesis de funcionamiento</h1>
+  <p class="sub">Herramienta didáctica para revisar la <strong>estructura</strong> de una hipótesis. No determina si la hipótesis es verdadera: ayuda a identificar qué elementos necesita para poder ser discutida y puesta a prueba.</p>
+
+  <section class="card">
+    <h2>1. Datos del grupo</h2>
+    <div class="grid">
+      <div>
+        <label for="grupo">Nombre / número del grupo</label>
+        <input id="grupo" placeholder="Ej.: Grupo 4"/>
+      </div>
+      <div>
+        <label for="integrantes">Integrantes</label>
+        <input id="integrantes" placeholder="Apellido, Nombre; Apellido, Nombre"/>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. Hipótesis</h2>
+    <label for="hipotesis">Escriban la hipótesis de funcionamiento</label>
+    <textarea id="hipotesis" placeholder="Ej.: Si el componente A posee la propiedad X, entonces produce el proceso Y, que genera el efecto Z..."></textarea>
+    <div class="actions">
+      <button class="primary" onclick="chequear()">Chequear estructura</button>
+      <button class="secondary" onclick="cargarEjemplo()">Cargar ejemplo</button>
+    </div>
+  </section>
+
+  <section id="resultado" class="card result">
+    <h2>3. Chequeo estructural</h2>
+    <div id="veredicto"></div>
+    <div id="criterios" class="criteria"></div>
+    <div id="feedback" style="margin-top:14px"></div>
+  </section>
+
+  <section class="card">
+    <h2>4. Rúbrica docente</h2>
+    <p class="small">0 = ausente · 1 = incipiente · 2 = adecuado · 3 = logrado</p>
+    <div class="grid">
+      <div><label>Elemento / componente</label><select id="rElemento"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+      <div><label>Propiedad relevante</label><select id="rPropiedad"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+      <div><label>Relación causal</label><select id="rCausalidad"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+      <div><label>Proceso / mecanismo</label><select id="rProceso"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+      <div><label>Efecto esperado</label><select id="rEfecto"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+      <div><label>Prueba / contrastación</label><select id="rPrueba"><option>0</option><option>1</option><option>2</option><option>3</option></select></div>
+    </div>
+    <div class="grid" style="margin-top:14px">
+      <div>
+        <label for="fortaleza">Fortaleza principal</label>
+        <textarea id="fortaleza" placeholder="¿Qué está bien formulado?"></textarea>
+      </div>
+      <div>
+        <label for="ajuste">Ajuste prioritario</label>
+        <textarea id="ajuste" placeholder="¿Qué debería reformularse primero?"></textarea>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="guardar()">Guardar devolución</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>5. Conexión a la base de datos</h2>
+    <p class="small">Configurá una vez la URL del proyecto y la clave pública <em>anon</em> de Supabase. Estos datos quedan guardados en este navegador.</p>
+    <div class="grid">
+      <div>
+        <label for="supabaseUrl">Supabase Project URL</label>
+        <input id="supabaseUrl" placeholder="https://xxxx.supabase.co"/>
+      </div>
+      <div>
+        <label for="supabaseKey">Supabase anon public key</label>
+        <input id="supabaseKey" placeholder="eyJ..."/>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" onclick="conectarSupabase()">Conectar</button>
+      <span id="dbStatus" class="badge warn">Sin conexión</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>6. Registro de la clase</h2>
+    <div class="actions" style="margin-top:0;margin-bottom:12px">
+      <button class="secondary" onclick="exportarCSV()">Exportar CSV</button>
+      <button class="secondary" onclick="exportarJSON()">Exportar respaldo JSON</button>
+      <button class="danger" onclick="borrarTodo()">Borrar registro local</button>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Grupo</th><th>Integrantes</th><th>Hipótesis</th>
+            <th>E</th><th>Prop.</th><th>Caus.</th><th>Proc.</th><th>Efecto</th><th>Prueba</th>
+            <th>Total /18</th><th>Fortaleza</th><th>Ajuste</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>Los datos se guardan en una base central de Supabase. Si la conexión falla, la app conserva temporalmente una copia local en este navegador.</footer>
+</div>
+
+<script>
+const KEY='hipotesis_funcionamiento_registros_v2';
+const CFG='hipotesis_supabase_config_v1';
+let db=null;
+
+function contiene(texto, patrones){
+  const t=texto.toLowerCase();
+  return patrones.some(p=>t.includes(p));
+}
+
+function chequear(){
+  const h=document.getElementById('hipotesis').value.trim();
+  if(!h){ alert('Escribí una hipótesis antes de chequear.'); return; }
+
+  const tests = [
+    {n:'Elemento / componente', ok: contiene(h,['componente','pieza','parte','elemento','material','sensor','motor','estructura','superficie','mecanismo']) || h.split(' ').length>8,
+     msg:'Identifica qué parte, elemento o componente interviene.'},
+    {n:'Propiedad', ok: contiene(h,['propiedad','rigidez','elastic','conduct','transpar','peso','forma','textura','temperatura','fricción','resistencia','densidad','flexib','tensión','presión']),
+     msg:'Explicita qué propiedad del elemento es relevante para que ocurra el fenómeno.'},
+    {n:'Relación causal', ok: contiene(h,['produce','provoca','genera','causa','hace que','permite','impide','entonces','por eso','debido a','como consecuencia']),
+     msg:'Debe aparecer una relación del tipo “A produce B”, no sólo una descripción de partes.'},
+    {n:'Proceso / mecanismo', ok: contiene(h,['proceso','mediante','a través','transmite','transforma','convierte','desplaza','gira','refleja','vibra','calienta','enfría','comprime','expande','activa']),
+     msg:'Explica qué ocurre entre la causa y el efecto: el mecanismo intermedio.'},
+    {n:'Efecto', ok: contiene(h,['efecto','resultado','logra','genera','produce','permite','hace que','como resultado']),
+     msg:'Indica qué resultado observable debería producirse.'},
+    {n:'Prueba posible', ok: contiene(h,['si','al cambiar','al quitar','al aumentar','al disminuir','comprobar','probar','medir','observar','comparar']),
+     msg:'La formulación debería permitir imaginar una prueba que pueda confirmarla o refutarla.'}
+  ];
+
+  const okCount=tests.filter(x=>x.ok).length;
+  let tipo = okCount>=5 ? ['Hipótesis estructuralmente sólida','ok'] :
+             okCount>=3 ? ['Hipótesis en construcción','warn'] :
+                          ['Predomina la descripción','bad'];
+
+  document.getElementById('veredicto').innerHTML =
+    `<span class="badge ${tipo[1]}">${tipo[0]}</span>
+     <span class="score">${okCount}/6</span>
+     <p class="small">Este puntaje sólo evalúa presencia de componentes estructurales.</p>`;
+
+  document.getElementById('criterios').innerHTML = tests.map(x=>
+    `<div class="criterion"><b>${x.n}</b>
+    <span class="badge ${x.ok?'ok':'bad'}">${x.ok?'Detectado':'A revisar'}</span>
+    <div class="small">${x.msg}</div></div>`).join('');
+
+  const faltan=tests.filter(x=>!x.ok).map(x=>x.n.toLowerCase());
+  const plantilla='Si [elemento] posee o presenta [propiedad], entonces produce/permite [proceso], que genera [efecto observable]. Esto podría ponerse a prueba modificando, retirando o comparando [variable o componente].';
+  document.getElementById('feedback').innerHTML = `
+    <div class="note"><strong>Devolución sugerida:</strong><br>
+    ${faltan.length ? 'La formulación necesita hacer más explícitos: '+faltan.join(', ')+'.' : 'La formulación contiene los componentes estructurales principales.'}
+    <br><br><strong>Plantilla de reformulación:</strong><br>${plantilla}</div>`;
+  document.getElementById('resultado').style.display='block';
+}
+
+function getLocal(){ try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){return[]} }
+function setLocal(r){ localStorage.setItem(KEY,JSON.stringify(r)); }
+
+function setStatus(text, cls){
+  const el=document.getElementById('dbStatus');
+  el.textContent=text; el.className='badge '+cls;
+}
+
+async function conectarSupabase(){
+  const url=document.getElementById('supabaseUrl').value.trim();
+  const key=document.getElementById('supabaseKey').value.trim();
+  if(!url || !key){ alert('Completá la URL y la clave pública anon.'); return; }
+  try{
+    db = window.supabase.createClient(url,key);
+    const { error } = await db.from('hipotesis').select('id').limit(1);
+    if(error) throw error;
+    localStorage.setItem(CFG, JSON.stringify({url,key}));
+    setStatus('Conectado','ok');
+    await render();
+  }catch(e){
+    db=null; setStatus('Error de conexión','bad');
+    alert('No se pudo conectar: '+e.message);
+  }
+}
+
+async function guardar(){
+  const grupo=document.getElementById('grupo').value.trim();
+  const integrantes=document.getElementById('integrantes').value.trim();
+  const hipotesis=document.getElementById('hipotesis').value.trim();
+  if(!grupo || !hipotesis){ alert('Completá al menos el grupo y la hipótesis.'); return; }
+
+  const vals=['rElemento','rPropiedad','rCausalidad','rProceso','rEfecto','rPrueba'].map(id=>+document.getElementById(id).value);
+  const reg={
+    grupo, integrantes, hipotesis,
+    elemento:vals[0], propiedad:vals[1], causalidad:vals[2],
+    proceso:vals[3], efecto:vals[4], prueba:vals[5],
+    total:vals.reduce((a,b)=>a+b,0),
+    fortaleza:document.getElementById('fortaleza').value.trim(),
+    ajuste:document.getElementById('ajuste').value.trim()
+  };
+
+  if(db){
+    try{
+      const { error } = await db.from('hipotesis').insert(reg);
+      if(error) throw error;
+      alert('Devolución guardada en la base central.');
+      await render();
+      return;
+    }catch(e){
+      alert('Falló el guardado remoto. Se conservará una copia local. '+e.message);
+    }
+  }
+
+  const local=getLocal();
+  local.push({...reg, fecha:new Date().toISOString()});
+  setLocal(local);
+  setStatus('Modo local','warn');
+  await render();
+}
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+
+async function obtenerRegistros(){
+  if(db){
+    const {data,error}=await db.from('hipotesis').select('*').order('created_at',{ascending:false});
+    if(error) throw error;
+    return data||[];
+  }
+  return getLocal();
+}
+
+async function render(){
+  let r=[];
+  try{ r=await obtenerRegistros(); }catch(e){ r=getLocal(); setStatus('Error; mostrando local','warn'); }
+  document.getElementById('tbody').innerHTML=r.map(x=>`<tr>
+    <td>${esc(x.created_at ? new Date(x.created_at).toLocaleString() : x.fecha||'')}</td>
+    <td>${esc(x.grupo)}</td><td>${esc(x.integrantes)}</td><td>${esc(x.hipotesis)}</td>
+    <td>${x.elemento}</td><td>${x.propiedad}</td><td>${x.causalidad}</td><td>${x.proceso}</td><td>${x.efecto}</td><td>${x.prueba}</td>
+    <td><strong>${x.total}</strong></td><td>${esc(x.fortaleza)}</td><td>${esc(x.ajuste)}</td></tr>`).join('');
+}
+
+function dl(name,content,type){
+  const b=new Blob([content],{type}); const a=document.createElement('a');
+  a.href=URL.createObjectURL(b); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),500);
+}
+async function exportarCSV(){
+  const r=await obtenerRegistros(); if(!r.length){alert('Todavía no hay registros.');return;}
+  const cols=['created_at','grupo','integrantes','hipotesis','elemento','propiedad','causalidad','proceso','efecto','prueba','total','fortaleza','ajuste'];
+  const q=v=>'"'+String(v??'').replaceAll('"','""')+'"';
+  const csv='\ufeff'+cols.join(';')+'\n'+r.map(x=>cols.map(c=>q(x[c])).join(';')).join('\n');
+  dl('registro_hipotesis.csv',csv,'text/csv;charset=utf-8');
+}
+async function exportarJSON(){
+  dl('respaldo_hipotesis.json',JSON.stringify(await obtenerRegistros(),null,2),'application/json');
+}
+function borrarTodo(){
+  alert('Por seguridad, esta versión no borra registros de la base central desde la interfaz. El borrado local puede hacerse desde el almacenamiento del navegador.');
+}
+
+window.addEventListener('DOMContentLoaded', async ()=>{
+  const cfg=JSON.parse(localStorage.getItem(CFG)||'null');
+  if(cfg){
+    document.getElementById('supabaseUrl').value=cfg.url||'';
+    document.getElementById('supabaseKey').value=cfg.key||'';
+    try{
+      db=window.supabase.createClient(cfg.url,cfg.key);
+      const {error}=await db.from('hipotesis').select('id').limit(1);
+      if(error) throw error;
+      setStatus('Conectado','ok');
+    }catch(e){db=null; setStatus('Sin conexión','warn');}
+  }
+  await render();
+});
+
+function cargarEjemplo(){
+  document.getElementById('hipotesis').value='Si la lámina flexible está sometida a tensión, entonces la deformación transmite el movimiento hacia el punto de apoyo, produciendo un desplazamiento visible. Esto puede comprobarse variando la tensión y observando cuánto cambia el desplazamiento.';
+}
+render();
+</script>
+</body>
+</html>
